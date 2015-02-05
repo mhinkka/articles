@@ -1,0 +1,1 @@
+This folder hierarchy contains supporting materials related to published articles.
