@@ -1,0 +1,74 @@
+<configuration> 
+     <property> 
+         <name>fs.default.name</name> 
+         <value>hdfs://${HADOOP_TRITON_NAMENODE}:${HADOOP_TRITON_HDFS_PORT}</value> 
+     </property>
+     <property>
+         <name>mapred.job.tracker</name>
+         <value>${HADOOP_TRITON_JOBTRACKER}:${HADOOP_TRITON_JOBTRACKER_PORT}</value>
+     </property>
+     <property>
+         <name>mapred.reduce.tasks</name>
+         <value>-1</value>
+         <description>The default number of reduce tasks per job.  Typically set
+  to a prime close to the number of available hosts.  Ignored when
+  mapred.job.tracker is "local". Hadoop set this to 1 by default, whereas hive uses -1 as its default value.
+  By setting this property to -1, Hive will automatically figure out what should be the number of reducers.
+         </description>
+     </property>
+     <property>
+         <name>hive.exec.reducers.bytes.per.reducer</name>
+         <value>${HADOOP_TRITON_HIVE_BYTES_PER_REDUCER}</value>
+         <description>size per reducer.The default is 1G, i.e if the input size is 10G, it will use 10 reducers.</description>
+     </property>
+     <property>
+         <name>mapred.tasktracker.map.tasks.maximum</name>
+         <value>12</value>
+     </property>
+     <property>
+         <name>mapred.tasktracker.reduce.tasks.maximum</name>
+         <value>12</value>
+     </property>
+     <property>
+         <name>hadoop.tmp.dir</name>
+         <value>${HADOOP_TRITON_TMP}</value>
+     </property>
+     <property>
+         <value>jdbc:derby:;databaseName=${HADOOP_TRITON_HIVE_METASTORE_PATH};create=true</value>
+         <name>javax.jdo.option.ConnectionURL</name>
+         <description>JDBC connect string for a JDBC metastore</description>
+     </property>
+     <property>
+         <name>hive.stats.dbconnectionstring</name>
+         <value>jdbc:derby:;databaseName=${HADOOP_TRITON_HIVE_TEMP_STATS_STORE_PATH};create=true</value>
+         <description>The default connection string for the database that stores temporary hive statistics.</description>
+     </property>
+     <property>
+         <name>hive.exec.parallel</name>
+         <value>true</value>
+     </property>
+     <property>
+         <name>hive.exec.compress.intermediate</name>
+         <value>true</value>
+     </property>
+     <property>
+         <name>hive.merge.mapredfiles</name>
+         <value>true</value>
+     </property>
+     <property>
+         <name>hive.stats.nvd.error</name>
+         <value>5.0</value>
+     </property>
+     <property>
+         <name>hive.exec.scratchdir</name>
+         <value>${HADOOP_TRITON_HIVE_SCRATCHDIR}</value>
+     </property>
+     <property>
+         <name>hive.querylog.location</name>
+         <value>${HADOOP_TRITON_HIVE_QUERYLOG_LOCATION}</value>
+     </property>
+     <property>
+         <name>hive.log.dir</name>
+         <value>${HADOOP_TRITON_HIVE_LOG_DIR}</value>
+     </property>
+</configuration>

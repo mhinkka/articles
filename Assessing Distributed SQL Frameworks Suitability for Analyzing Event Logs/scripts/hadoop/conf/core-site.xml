@@ -1,0 +1,30 @@
+<configuration>
+  <property>
+    <name>fs.default.name</name>
+    <value>hdfs://${HADOOP_TRITON_NAMENODE}:${HADOOP_TRITON_HDFS_PORT}</value>
+  </property>
+  <property>
+    <name>hadoop.tmp.dir</name>
+    <value>${HADOOP_TRITON_TMP}</value>
+  </property>
+  <property>
+    <name>io.sort.mb</name>
+    <value>1280</value>
+  </property>
+  <property>
+    <name>fs.inmemory.size.mb</name>
+    <value>1280</value>
+  </property>
+  <property>
+    <name>io.sort.factor</name>
+    <value>100</value>
+  </property>
+  <property>
+    <name>io.file.buffer.size</name>
+    <value>65536</value>
+  </property>
+  <property>
+    <name>io.compression.codecs</name>
+    <value>org.apache.hadoop.io.compress.GzipCodec,org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.BZip2Codec</value>
+  </property>
+</configuration>

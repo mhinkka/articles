@@ -1,0 +1,20 @@
+<project>
+  <groupId>edu.berkeley</groupId>
+  <artifactId>Tester</artifactId>
+  <modelVersion>4.0.0</modelVersion>
+  <name>Spark Testing Project</name>
+  <packaging>jar</packaging>
+  <version>1.0</version>
+  <dependencies>
+    <dependency> <!-- Spark dependency -->
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-core_2.10</artifactId>
+      <version>1.2.0</version>
+    </dependency>
+    <dependency> <!-- Spark SQL dependency -->
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-sql_2.10</artifactId>
+      <version>1.0.2</version>
+    </dependency>
+  </dependencies>
+</project>

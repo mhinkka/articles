@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS events;
+CREATE TABLE events (evt_id INT, evt_case STRING, evt_event STRING, evt_timestamp TIMESTAMP) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' STORED AS TEXTFILE;
+LOAD DATA LOCAL INPATH '/triton/cse/work/hinkkam2/test.csv' OVERWRITE INTO TABLE events;

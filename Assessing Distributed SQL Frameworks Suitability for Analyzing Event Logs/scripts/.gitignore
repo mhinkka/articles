@@ -1,0 +1,8 @@
+*~
+*.log
+*.jar
+out.txt
+hive/udf/*_classes/*
+spark/script/*_classes/*
+spark-1.2.1/script/target/*
+launchers/*
