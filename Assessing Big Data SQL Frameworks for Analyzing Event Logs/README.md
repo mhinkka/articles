@@ -1,7 +1,7 @@
 # Assessing Big Data SQL Frameworks for Analyzing Event Logs
 ---
 
-This directory will eventually contain all the supporting materials for this article. Support materials will include scripts and configurations used to perform the tests in Aalto University's Triton Cluster.
+This directory contains all the supporting materials for the article. Support materials include scripts and configurations used to perform the tests in Aalto University's Triton Cluster (a.k.a. Test Framework).
 
 ## Files of the test framework
 ---
@@ -67,7 +67,8 @@ related to the developed test framework.
       launcher.sh                 -> Launch actual test runs.
       results.sh                  -> Collect results from logs generated into sub directories 
                                      of test target directory.
-      triton.template.sh          -> Template of the actual batch script that is passed to the SLURM.
+      triton.template.sh          -> Template of the actual batch script that is passed to the 
+                                     SLURM.
       
 
 ## Test framework usage
