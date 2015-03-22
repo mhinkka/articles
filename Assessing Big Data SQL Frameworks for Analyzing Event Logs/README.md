@@ -75,7 +75,7 @@ related to the developed test framework.
 
 ### Environment Requirements
 
-Test framework is hard-coded to work only on Aalto's Triton cluster by an user having a specific kind of directory hierarchies. This chapter explains required directories and their contents.
+The test framework is hard-coded to work only on Aalto's Triton cluster by an user having a specific kind of directory hierarchies. This chapter explains required directories and their contents.
 
     $HOME/
       hadoop/
