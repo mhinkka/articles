@@ -63,6 +63,7 @@ related to the developed test framework.
         buildtestdata.sh          -> Generate actual test data by repeating the provided CSV 
                                      multiple times and by generating unique case ids for 
                                      every file.
+      .bashrc                     -> Variable initializations for bash shells.
       launcher.sh                 -> Launch actual test runs.
       results.sh                  -> Collect results from logs generated into sub directories 
                                      of test target directory.
@@ -72,6 +73,34 @@ related to the developed test framework.
 ## Test framework usage
 ---
 
+### Environment Requirements
+
+Test framework is hard-coded to work only on Aalto's Triton cluster by an user having a specific kind of directory hierarchies. This chapter explains required directories and their contents.
+
+    $HOME/
+      hadoop/
+        hadoop-1.2.1/              -> Apache Hadoop 1.2.1 binary distribution.
+        hadoop-2.4.0/              -> Apache Hadoop 2.4.0 binary distribution.
+      hive/
+        apache-hive-0.13.1-bin     -> Apache Hive 0.13.1 binary distribution.
+      maven/
+        apache-maven-3.2.5/        -> Apache Maven 3.2.5 binary distribution.
+      presto/
+        presto                     -> Presto command line interface executable.
+      scala/
+        scala-2.10.2/              -> Scala 2.10.2 binary distribution.
+      spark/
+        spark-1.0.2-bin-hadoop2/   -> Spark 1.0.2 binary distribution for Hadoop 2.
+        spark-1.2.1-bin-hadoop2.4/ -> Spark 1.0.2 binary distribution for Hadoop 2.4.
+    $WRKDIR/
+      packages/                    -> Storage for additional binary distributions used 
+                                      in tests.
+        presto-server-0.77/        -> Facebook Presto-Server 0.77 binary distribution.
+      runs/                        -> Test result target directory.
+      test.csv                     -> Test data to use for tests.
+
+Also the environment definitions in scripts/.bashrc must be added to bash initialization scripts used in worker hosts.
+      
 ### Initializing test data
 
 1. Change working directory to be the scripts/testdata-directory.
@@ -82,7 +111,6 @@ Example:
 
 These parameters were used to generate the test data used in the paper.
 
-
 ### Running test(s)
 
 1. Log into Aalto's Triton cluster front-end system.
@@ -92,6 +120,7 @@ These parameters were used to generate the test data used in the paper.
 Example:
 . launcher.sh test triton.template.sh "flows variations" "4 8" 10000000 3 "hive presto spark spark-caching"
 
+This will generate several (one for every test type and one for every number of worker hosts => 4) batch jobs that will be transmitted to SLURM. 
 This will run flow and trace analysis using 4 and 8 worker hosts on test data having 10 million events three times on hive, presto, spark and spark-caching settings.
 
 ### Collecting results from test result target directory
