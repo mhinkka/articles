@@ -254,8 +254,10 @@ echo "Killing all"
 killall -q -9 java hive launcher presto-server
 for host in $(cat $slaveHostsRootFile); do ssh -o StrictHostKeyChecking=no $host "killall -q -9 java hive launcher presto-server"; done
 
-echo "Deleting old local files under /local..."
-for host in $(cat $nodesFile); do ssh -o StrictHostKeyChecking=no $host "find /local -maxdepth 1 -user $USER | xargs rm -fr"; done
+# Uncomment the following two lines in order to automatically delete all the files in the 
+# local directories of the worker hosts before starting the actual tests.
+# echo "Deleting old local files under /local..."
+# for host in $(cat $nodesFile); do ssh -o StrictHostKeyChecking=no $host "find /local -maxdepth 1 -user $USER | xargs rm -fr"; done
 
 
 trap cleanupOnTimeout EXIT
