@@ -3,6 +3,8 @@
 
 This directory contains all the supporting materials for the article. Support materials include scripts and configurations used to perform the tests in Aalto University's Triton Cluster (a.k.a. Test Framework).
 
+***NOTE: The scripts and configurations provided here act only as supporting materials for the article. I will not take any responsibility for any possible loss or damage caused by the use of files provided herein.***
+
 ## Files of the test framework
 ---
 
