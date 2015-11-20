@@ -12,7 +12,40 @@ The following list contains short descriptions for all the most important files 
 related to the developed test framework. 
 
     README.md                     -> This file.
-    scripts/                      -> All the script files.
+    scripts-aws/                  -> All the script files for performing tests in AWS EC2 
+                                     CDH5 cluster.
+      generated/                  -> Directory for generated test results.
+      hive/                       -> Hive test related files.
+        test.sh                   -> Test Hive 1.1.0.
+        script/                   -> Test SQL scripts for Hive.
+          flows.sql               -> Flow analysis test script.
+          load.sql                -> Script for loading CSV testdata into a table.
+          variations.sql          -> Trace analysis test script.
+      postgresql/                 -> PostgreSQL test related files.
+        test.sh                   -> Test PostgreSQL 9.3.8.
+        script/                   -> Test SQL scripts for PostgreSQL.
+          flows.sql               -> Flow analysis test script.
+          load.sql                -> Script for loading CSV testdata into a table.
+          variations.sql          -> Trace analysis test script.
+      presto/                     -> Hive test related files.
+        test.sh                   -> Test Presto 0.85.
+        script/                   -> Test SQL scripts for Presto.
+          flows.sql               -> Flow analysis test script.
+          load.sql                -> Script for loading CSV testdata into a table.
+          variations.sql          -> Trace analysis test script.
+        conf/                     -> Presto configuration file templates.
+      spark/                      -> Spark test related files.
+        test.sh                   -> Test Spark 1.3.0.
+        script/                   -> Test scripts for Spark.
+          src/                    -> Java source files.
+          target/                 -> Compiled jar package.
+      testdata/                   -> Test data generation related scripts and files.
+        bpi_2013_challenge.csv    -> CSV file used as basis of the test data.
+        buildtestdata.sh          -> Generate actual test data by repeating the provided CSV 
+                                     multiple times and by generating unique case ids for 
+                                     every file.
+    scripts-triton/               -> All the script files for performing tests in Triton 
+                                     environment.
       hadoop/                     -> Hadoop configuration and startup scripts.
         conf/                     -> Hadoop configuration file templates for Hadoop 1.2.1.
         init.sh                   -> Hadoop configuration initializations.
@@ -35,7 +68,7 @@ related to the developed test framework.
         test-1.2.1.sh             -> Test Hive 0.13 using Hadoop 1.2.1.
         test.sh                   -> Test Hive 0.13 using Hadoop 2.4.0.
       presto/                     -> Presto test related files.
-        conf/                     -> Presto configuration file templates for Presto 0.77.
+        conf/                     -> Presto configuration file templates.
           coordinator.sh          -> Launch Presto coordinator.
           presto-common-init.sh   -> Initialize presto host.
           worker.sh               -> Launch Presto worker.
@@ -76,7 +109,17 @@ related to the developed test framework.
 ## Test framework usage
 ---
 
-### Environment Requirements
+### Initializing test data
+
+1. Change working directory to be the scripts/testdata-directory.
+2. Run buildtestdata.sh script using suitable arguments and route the output to $WRKDIR/test.csv.
+
+Example:
+./buildtestdata.sh 1600 bpi_2013_challenge.csv > $WRKDIR/test.csv
+
+These parameters were used to generate the test data used in the paper.
+
+### Triton Environment Requirements
 
 The test framework is hard-coded to work only on Aalto's Triton cluster by an user having a specific kind of directory hierarchies. This chapter explains required directories and their contents.
 
@@ -104,17 +147,7 @@ The test framework is hard-coded to work only on Aalto's Triton cluster by an us
 
 Also the environment definitions in scripts/.bashrc must be added to bash initialization scripts used in worker hosts.
       
-### Initializing test data
-
-1. Change working directory to be the scripts/testdata-directory.
-2. Run buildtestdata.sh script using suitable arguments and route the output to $WRKDIR/test.csv.
-
-Example:
-./buildtestdata.sh 1600 bpi_2013_challenge.csv > $WRKDIR/test.csv
-
-These parameters were used to generate the test data used in the paper.
-
-### Running test(s)
+### Running Triton test(s)
 
 1. Log into Aalto's Triton cluster front-end system.
 2. Change working directory to be the scripts-directory.
@@ -126,7 +159,7 @@ Example:
 This will generate several (one for every test type and one for every number of worker hosts => 4) batch jobs that will be transmitted to SLURM. 
 This will run flow and trace analysis using 4 and 8 worker hosts on test data having 10 million events three times on hive, presto, spark and spark-caching settings.
 
-### Collecting results from test result target directory
+### Collecting Triton results from test result target directory
 
 1. Log into Aalto's Triton cluster front-end system.
 2. Change working directory to be the scripts-directory.
