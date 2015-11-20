@@ -1,0 +1,4 @@
+coordinator=false
+http-server.http.port=${TEST_PRESTO_PORT}
+task.max-memory=1GB
+discovery.uri=http://${TEST_PRESTO_DISCOVERY_HOST}:${TEST_PRESTO_PORT}

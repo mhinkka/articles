@@ -1,0 +1,4 @@
+connector.name=hive-cdh5
+hive.metastore.uri=thrift://${TEST_NAMENODE}:${TEST_HIVE_PORT}
+
+

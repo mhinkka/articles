@@ -1,0 +1,3 @@
+node.environment=production
+node.id=${TEST_PRESTO_NODE_ID}
+node.data-dir=${TEST_PRESTO_DATA_DIR}
