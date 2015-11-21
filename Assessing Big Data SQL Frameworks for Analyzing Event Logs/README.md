@@ -195,10 +195,12 @@ In order to run the tests in AWS, your system must have the following properties
 
 1. CDH 5.4.2 must be deployed, configured in the cluster with the services running that are required for the tests.
 2. Add execution of shinit.sh to shell initialization scripts (e.g., .bashrc).
-3. If running Presto-tests the following files must be configured according to the used environment:
-3.1. hosts
+
+If running Presto-tests also the following files must be configured according to the used environment:
+
+1. hosts
 IP addresses of the used worker hosts
-3.2. presto/deploy.sh (required only when testing Presto)
+2. presto/deploy.sh (required only when testing Presto) 
 PRESTO_SOURCE must be set to match the location from which presto-server files can be found.
 PEM must be set to match the SSH PEM file location accepted by all the worker nodes.
 
