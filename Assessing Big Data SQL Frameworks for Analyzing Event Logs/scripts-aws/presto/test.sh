@@ -32,7 +32,8 @@ PRESTO_COMMAND_LINE_INTERFACE_EXE=/ebsvol1/presto/presto
 mkdir -p $RESULT_SCRIPT_PATH
 
 printfWithTime "Loading data..." >> $MEASUREMENT_RESULTS_FILE
-runHiveScript $SCRIPT_PATH/load.sql
+#runHiveScript $SCRIPT_PATH/load.sql
+runHiveScript $SCRIPT_PATH/load-rcfile.sql
 
 printfWithTime "Performing warm-up run..." >> $MEASUREMENT_RESULTS_FILE
 runScript $SCRIPT_PATH/$TEST_NAME.sql warmup

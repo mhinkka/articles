@@ -29,7 +29,8 @@ SCRIPT_PATH=$PWD/script
 mkdir -p $RESULT_SCRIPT_PATH
 
 printfWithTime "Loading data..." >> $MEASUREMENT_RESULTS_FILE
-runScript $SCRIPT_PATH/load.sql
+#runScript $SCRIPT_PATH/load.sql
+runScript $SCRIPT_PATH/load-rcfile.sql
 
 printfWithTime "Performing warm-up run..." >> $MEASUREMENT_RESULTS_FILE
 runScript $SCRIPT_PATH/$TEST_NAME.sql warmup
