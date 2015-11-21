@@ -192,6 +192,7 @@ Results will be generated in PGFPlots friendly format into results-subdirectory.
 ### AWS environment requirements
 
 In order to run the tests in AWS, your system must have the following properties:
+
 1. CDH 5.4.2 must be deployed, configured in the cluster with the services running that are required for the tests.
 2. Add execution of shinit.sh to shell initialization scripts (e.g., .bashrc).
 3. If running Presto-tests the following files must be configured according to the used environment:
