@@ -28,7 +28,15 @@ related to the developed test framework.
           load.sql                -> Script for loading CSV testdata into a table.
           variations.sql          -> Trace analysis test script.
       presto/                     -> Hive test related files.
+        common-init.sh            -> Common initialization run on both worker and 
+                                     coordinator hosts.
+        coordinator.sh            -> Script run to initialize coordinator host.
+        deploy.sh                 -> Start up presto servers on configured worker hosts.
+        status.sh                 -> Query the current status of presto servers.
+        stop.sh                   -> Stop presto servers.
+        
         test.sh                   -> Test Presto 0.85.
+        worker.sh                 -> Script run to initialize worker host.
         script/                   -> Test SQL scripts for Presto.
           flows.sql               -> Flow analysis test script.
           load.sql                -> Script for loading CSV testdata into a table.
@@ -44,6 +52,16 @@ related to the developed test framework.
         buildtestdata.sh          -> Generate actual test data by repeating the provided CSV 
                                      multiple times and by generating unique case ids for 
                                      every file.
+      hosts                       -> Contains IP addresses of the worker hosts.
+      init.sh                     -> Prepare test environments (starts presto servers)
+      results.awk                 -> Helper AWK script for results.sh.
+      results.sh                  -> Script to generate pgfplot-friendly result files into 
+                                     generated-directory out of test run logs.
+      shinit.sh                   -> Init scripts to initialize new shells (e.g., included 
+                                     into .bashrc).
+      status.sh                   -> Query the current status of (presto) servers.
+      stop.sh                     -> Stop (presto) servers.
+      test.sh                     -> Run actual tests.
     scripts-triton/               -> All the script files for performing tests in Triton 
                                      environment.
       hadoop/                     -> Hadoop configuration and startup scripts.
@@ -147,6 +165,7 @@ The test framework is hard-coded to work only on Aalto's Triton cluster by an us
 
 Also the environment definitions in scripts/.bashrc must be added to bash initialization scripts used in worker hosts.
       
+
 ### Running Triton test(s)
 
 1. Log into Aalto's Triton cluster front-end system.
@@ -159,11 +178,49 @@ Example:
 This will generate several (one for every test type and one for every number of worker hosts => 4) batch jobs that will be transmitted to SLURM. 
 This will run flow and trace analysis using 4 and 8 worker hosts on test data having 10 million events three times on hive, presto, spark and spark-caching settings.
 
+
 ### Collecting Triton results from test result target directory
 
 1. Log into Aalto's Triton cluster front-end system.
 2. Change working directory to be the scripts-directory.
-3. Run results.sh-script.
+3. Run triton tests as described in the previous chapter.
+4. Run results.sh-script.
 
-Results will be generated in pgfplots friendly format into results-subdirectory.
+Results will be generated in PGFPlots friendly format into results-subdirectory.
+
+
+### AWS environment requirements
+
+In order to run the tests in AWS, your system must have the following properties:
+1. CDH 5.4.2 must be deployed, configured in the cluster with the services running that are required for the tests.
+2. Add execution of shinit.sh to shell initialization scripts (e.g., .bashrc).
+3. If running Presto-tests the following files must be configured according to the used environment:
+3.1. hosts
+IP addresses of the used worker hosts
+3.2. presto/deploy.sh (required only when testing Presto)
+PRESTO_SOURCE must be set to match the location from which presto-server files can be found.
+PEM must be set to match the SSH PEM file location accepted by all the worker nodes.
+
+
+### Running AWS test(s)
+
+1. Log into master node of an AWS cluster.
+2. Change working directory to be the scripts-directory.
+3. Run init.sh to start up presto servers.
+4. Run test.sh script using suitable arguments.
+
+Example:
+. test.sh "presto hive postgresql spark spark-caching" "flows" "100000 1000000 10000000 100000000" test 3
+
+This will run flows-test on five different frameworks using 4 different event log sizes. Every test will consist of one warm-up run and three actual test runs.
+
+### Collecting AWS results from test results
+
+1. Log into master node of an AWS cluster.
+2. Change working directory to be the scripts-directory.
+3. Run AWS tests as described in the previous chapter.
+4. Run results.sh-script.
+
+Results will be generated in PGFPlots friendly format into generated-subdirectory.
+
 
