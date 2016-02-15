@@ -1,14 +1,13 @@
 #!/bin/bash
-#Usage: sbatch triton.sh <name> <storage format> <suffix> <number of events> <number of repeats> <test name>
+#Usage: sbatch triton.sh <name> <storage format> <suffix> <number of events> <number of repeats> <test name> <frameworks>
 #Defaults:
 # <storage format>: rcfile
 # <suffix>: <empty>
 # <number of events>: 1000
 # <number of repeats>: 1
 # <test name>: flows
-#
+# <frameworks>: "hive presto spark"
 #Check memory usage: sacct -j -l <job id> | less -S
-# USE $TMPDIR!!!
 
 ##SBATCH --time=0-00:15:00 --mem-per-cpu=500
 #SBATCH -o out.log
