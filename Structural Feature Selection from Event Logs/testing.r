@@ -1178,23 +1178,17 @@ loadDataset("rabobank-all-structural-features", "rabobank-case-attributes", "Sel
 r <- performTestSuite(
   "all",
   traindf, 
-  c(4000),
+  c(4000, 20000),
   c(5, 10, 30),
   c(
     "getPrunedTraindfRandom",
     "getPrunedTraindfNone",
-    "getPrunedTraindfClusterDuplicates",
     "getPrunedTraindfCluster",
-    "getPrunedTraindfBlanket",
-#    "getPrunedTraindfLASSO",
-#    "getPrunedTraindfPCA", 
-#    "getPrunedTraindfICA", 
-    "getPrunedTraindfRecursive", 
+    "getPrunedTraindfMRMREnsemble5",
     "getPrunedTraindfClusterImportance",
+    "getPrunedTraindfBlanket",
     "getPrunedTraindfLASSORepeated1se",
-    "getPrunedTraindfRecursive2Sizes",
-    "getPrunedTraindfLASSORepeated",
-    "getPrunedTraindfRecursiveSVM"
+    "getPrunedTraindfRecursive2Sizes"
   ),
   "Selected",
   "",
