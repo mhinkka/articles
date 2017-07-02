@@ -1,0 +1,26 @@
+# List of R packages and their version numbers used in tests performed for paper: "Structural Feature Selection for Event Logs"
+# by Markku Hinkka, Teemu Lehto, Keijo Heljanko and Alexander Jung.
+# 2.7.2017
+
+> sessionInfo()
+R version 3.3.1 (2016-06-21)
+Platform: x86_64-w64-mingw32/x64 (64-bit)
+Running under: Windows 10 x64 (build 15063)
+
+locale:
+[1] LC_COLLATE=Finnish_Finland.1252  LC_CTYPE=Finnish_Finland.1252    LC_MONETARY=Finnish_Finland.1252 LC_NUMERIC=C                     LC_TIME=Finnish_Finland.1252    
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] mRMRe_2.0.5         igraph_1.0.1        survival_2.39-4     infotheo_1.2.0      randomForest_4.6-12 glmnet_2.0-5        foreach_1.4.3       Matrix_1.2-6       
+ [9] bnlearn_4.0         fastICA_1.2-0       kernlab_0.9-24      data.table_1.9.6    cluster_2.0.4       plyr_1.8.4          psych_1.6.6         caTools_1.17.1     
+[17] pROC_1.8            caretEnsemble_2.0.0 caret_6.0-70        ggplot2_2.1.0       lattice_0.20-33     RevoUtilsMath_8.0.3
+
+loaded via a namespace (and not attached):
+ [1] Rcpp_0.12.5        nloptr_1.0.4       bitops_1.0-6       iterators_1.0.8    tools_3.3.1        lme4_1.1-12        digest_0.6.9       nlme_3.1-128      
+ [9] gtable_0.2.0       mgcv_1.8-12        parallel_3.3.1     SparseM_1.7        gridExtra_2.2.1    stringr_1.0.0      RevoUtils_10.0.1   MatrixModels_0.4-1
+[17] stats4_3.3.1       grid_3.3.1         nnet_7.3-12        pbapply_1.2-1      minqa_1.2.4        reshape2_1.4.1     car_2.1-2          magrittr_1.5      
+[25] scales_0.4.0       codetools_0.2-14   MASS_7.3-45        splines_3.3.1      pbkrtest_0.4-6     mnormt_1.5-4       colorspace_1.2-6   quantreg_5.26     
+[33] stringi_1.1.1      munsell_0.4.3      chron_2.3-47      

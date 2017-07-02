@@ -1,5 +1,18 @@
-fileLocation <- "D:\\dev\\aalto\\papers\\structural-influence-analysis\\"
+########################################################################################
+# R test framework sources used to perform the tests required by paper: "Structural Feature Selection for Event Logs" 
+# by Markku Hinkka, Teemu Lehto, Keijo Heljanko and Alexander Jung
+# 2.7.2017
 
+########################################################################################
+# Configuration
+
+fileLocation <- "D:\\dev\\aalto\\papers\\structural-influence-analysis\\"
+logFileLocation <- "C:\\Users\\User\\Dropbox\\Aalto\\Structural Influence Analysis\\testruns\\"
+
+# Initialize random seed so that the results are repeatable.
+seed <- 1234
+
+########################################################################################
 # Load required libraries
 require(caret)
 require(caretEnsemble)
@@ -17,9 +30,8 @@ require(randomForest)
 require(infotheo)
 require(mRMRe)
 
-# Initialize random seed so that the results are repeatable.
-seed <- 1234
-
+########################################################################################
+# Function definitions
 writeLogMessage <- function(writeLogMessage) {
   print(paste(Sys.time(), paste(writeLogMessage, collapse=",")))
 }
@@ -37,7 +49,11 @@ loadDataset <- function(datasetName, caseAttributesName, resultColumnName, outco
   traindf <- data.frame(lapply(traindf, as.factor))
   traindf <<- traindf
 
-  caseAttributeData <<- read.csv(paste(fileLocation, caseAttributesName, ".csv", sep = ""), sep=separator, dec=".", stringsAsFactors=FALSE)
+  if (caseAttributesName != "") {
+    caseAttributeData <<- read.csv(paste(fileLocation, caseAttributesName, ".csv", sep = ""), sep=separator, dec=".", stringsAsFactors=FALSE)
+  } else {
+    caseAttributeData <<- NULL
+  }
   writeLogMessage(paste("Number of columns in the training dataset: ", ncol(traindf), sep=""))
 }
 
@@ -75,7 +91,6 @@ getPrunedTraindfPCA <- function(df, initialK, outcomeCol) {
   }
   df <- df[, sapply(df, nlevels) > 1]
   df <- convertToNumeric(df)
-#  for (col in names(df)) set(df, j=col, value=as.numeric(df[[col]]))
   df <- addNoise(df)
   result$pca <- preProcess(df, method=c("center", "scale", "pca"), pcaComp=initialK)
   result$alldf <- data.frame(predict(result$pca, df))
@@ -88,8 +103,6 @@ getPrunedTraindfPCA <- function(df, initialK, outcomeCol) {
     return(predict(result$pca, df2))
   }
   return(result)
-#  result$pca <- prcomp(df)
-#  result$alldf <- result$pca$x[,1:initialK]
 }
 
 getPrunedTraindfICA <- function(df, initialK, outcomeCol) {
@@ -111,9 +124,6 @@ getPrunedTraindfICA <- function(df, initialK, outcomeCol) {
     return(predict(result$ica, df2))
   }
   return(result)
-#  result$ica <- fastICA(df, initialK, alg.typ = "parallel", fun = "logcosh", alpha = 1,
-#             method = "R", row.norm = FALSE, maxit = 200,
-#             tol = 0.0001, verbose = TRUE)
 }
 
 getPrunedTraindfClusterEx <- function(df, initialK, outcomeCol, removeDuplicates) {
@@ -168,7 +178,6 @@ getPrunedTraindfClusterEx <- function(df, initialK, outcomeCol, removeDuplicates
     }
     result$clusters <<- clusters
 
-#    clusterCenterFeatureIndexes <- seq_along(result$clusters$cluster)[!duplicated(result$clusters$cluster)]
     result$clusters$clusterCenterFeatureIndexes <<- clusterCenterFeatureIndexes
     result$clusters$clusterCenterFeatures <<- names(df)[clusterCenterFeatureIndexes]
     return(colnames(df[, clusterCenterFeatureIndexes]))
@@ -225,55 +234,65 @@ addNoise <- function(mtx)
   return(noise + mtx)
 }
 
-# http://freakonometrics.hypotheses.org/19835
-#nRows <- 10
-#df <- traindf[1:nRows, 6:ncol(traindf)]
-#initialK <- 2
-#outcomeCol <- traindf$Selected[1:nRows]
-
-#result$importance <- varImp(randomForest(predictorCols, outcomeCol), scale=FALSE)
-#i <- cbind.data.frame(rownames(result$importance), result$importance)
-#(i[order(-i$Overall),][1:initialK,])[,1]
 getPrunedTraindfImportance <- function(df, initialK, outcomeCol) {
   result <- NULL
   # prepare training scheme
   # train the model
   predictorCols <- df
   for (col in names(predictorCols)) set(predictorCols, j=col, value=ifelse(predictorCols[[col]]==1, 1, 0))
-#  predictorCols <- addNoise(predictorCols)
   model <- randomForest(predictorCols, as.factor(outcomeCol))
   # estimate variable importance
   result$importance <- varImp(model, scale=FALSE)
-  # summarize importance
-#  print(importance)
-  # plot importance
-#  varImpPlot(model)
-
-#  prunedPredictorNames <- rownames(result$importance$importance)[1:initialK]
   i <- cbind.data.frame(rownames(result$importance), result$importance)
   prunedPredictorNames <- (i[order(-i$Overall),][1:initialK,])[,1]
   writeLogMessage("Predictor names after importance:")
   writeLogMessage(prunedPredictorNames)
   result$alldf <- df[, prunedPredictorNames]
   return(result)
-
-##  control <- trainControl(method="repeatedcv", number=1, repeats=1)
-##  model <- train(predictorCols, outcomeCol, method="lvq", trControl=control)
-#  model <- train(predictorCols, outcomeCol, method="rf", importance = TRUE)
-#  i <- data.frame(result$importance$importance)
-#  prunedPredictorNames <- rownames(i[order(-i$X0),][1:initialK,])
 }
 
+getPrunedTraindfImportanceGBM <- function(df, initialK, outcomeCol) {
+  result <- NULL
+  # prepare training scheme
+  # train the model
+  predictorCols <- df
+  for (col in names(predictorCols)) set(predictorCols, j=col, value=ifelse(predictorCols[[col]]==1, 1, 0))
 
-#VERY SLOW!!! Timing stopped at: 59753.53 27.58 59897.79
-#varImp(train(predictorCols, outcomeCol, method="rf", importance = TRUE), scale=FALSE)
+  tc <- trainControl(
+    method="boot",
+    number=3,
+    savePredictions="final",
+    classProbs=TRUE,
+    index=createResample(outcomeCol, 1),
+    summaryFunction=twoClassSummary
+  )
+
+  model <- train(
+    predictorCols, 
+    ifelse(outcomeCol==1, 'yes', 'no'), 
+    method="gbm", 
+    
+    metric="ROC", 
+    trControl=tc)
+
+  # estimate variable importance
+  result$importance <- varImp(model, scale=FALSE)
+  # summarize importance
+
+  i <- cbind.data.frame(rownames(result$importance$importance), result$importance$importance)
+  prunedPredictorNames <- (i[order(-i$Overall),][1:initialK,])[,1]
+  writeLogMessage("Predictor names after importance:")
+  writeLogMessage(prunedPredictorNames)
+  result$alldf <- df[, prunedPredictorNames]
+  return(result)
+}
+
 getPrunedTraindfImportanceCaret <- function(df, initialK, outcomeCol) {
   result <- NULL
   # prepare training scheme
   # train the model
   predictorCols <- df
   for (col in names(predictorCols)) set(predictorCols, j=col, value=ifelse(predictorCols[[col]]==1, 1, 0))
-#  predictorCols <- addNoise(predictorCols)
   control <- trainControl(method="repeatedcv", number=1, repeats=1)
   model <- train(predictorCols, outcomeCol, method="rf", importance = TRUE)
   # estimate variable importance
@@ -284,22 +303,11 @@ getPrunedTraindfImportanceCaret <- function(df, initialK, outcomeCol) {
   writeLogMessage(prunedPredictorNames)
   result$alldf <- df[, prunedPredictorNames]
   return(result)
-
-##  control <- trainControl(method="repeatedcv", number=1, repeats=1)
-##  model <- train(predictorCols, outcomeCol, method="lvq", trControl=control)
-#  model <- train(predictorCols, outcomeCol, method="rf", importance = TRUE)
-#  i <- data.frame(result$importance$importance)
-#  prunedPredictorNames <- rownames(i[order(-i$X0),][1:initialK,])
 }
 
 getRFEControl <- function(funcs) {
   # define the control using a random forest selection function
   return(rfeControl(functions=funcs, method="cv", repeats=1, number=3, returnResamp="final", verbose = FALSE))
-#  return(rfeControl(functions=funcs, method="cv", repeats=1, number=5, returnResamp="final", verbose = FALSE))
-#  return(rfeControl(functions=caretFuncs, 
-#                    method = "cv",
-#                    repeats=1, number = 5,
-#                    returnResamp="final", verbose = TRUE))
 }
 
 getTrainControlForRF <- function() {
@@ -317,15 +325,6 @@ getPrunedTraindfRecursive <- function(df, initialK, outcomeCol) {
     sizes=c(initialK), 
     rfeControl=getRFEControl(rfFuncs),
     trControl=getTrainControlForRF())
-  # summarize the results
-#  print(result$rfe)
-  # list the chosen features
-#  result$predictors <- predictors(result$rfe)
-  # plot the results
-#  plot(result$rfe, type=c("g", "o"))
-
-#  update(result$rfe, predictorCols, outcomedf[, "SelectedC"], size=initialK)
-
   
   prunedPredictorNames <- result$rfe$optVariables[1:min(length(result$rfe$optVariables), initialK)]
 
@@ -350,15 +349,6 @@ getPrunedTraindfRecursive2Sizes <- function(df, initialK, outcomeCol) {
     sizes=c(mid, initialK), 
     rfeControl=getRFEControl(rfFuncs),
     trControl=getTrainControlForRF())
-  # summarize the results
-#  print(result$rfe)
-  # list the chosen features
-#  result$predictors <- predictors(result$rfe)
-  # plot the results
-#  plot(result$rfe, type=c("g", "o"))
-
-#  update(result$rfe, predictorCols, outcomedf[, "SelectedC"], size=initialK)
-
   
   prunedPredictorNames <- result$rfe$optVariables[1:min(length(result$rfe$optVariables), initialK)]
 
@@ -386,15 +376,6 @@ getPrunedTraindfRecursive4Sizes <- function(df, initialK, outcomeCol) {
     sizes=s, 
     rfeControl=getRFEControl(rfFuncs),
     trControl=getTrainControlForRF())
-  # summarize the results
-#  print(result$rfe)
-  # list the chosen features
-#  result$predictors <- predictors(result$rfe)
-  # plot the results
-#  plot(result$rfe, type=c("g", "o"))
-
-#  update(result$rfe, predictorCols, outcomedf[, "SelectedC"], size=initialK)
-
   
   prunedPredictorNames <- result$rfe$optVariables[1:min(length(result$rfe$optVariables), initialK)]
 
@@ -406,24 +387,14 @@ getPrunedTraindfRecursive4Sizes <- function(df, initialK, outcomeCol) {
 }
 
 getPrunedTraindfRecursiveSVM <- function(df, initialK, outcomeCol) {
-  # Adapted from: http://stackoverflow.com/questions/21088825/feature-selection-in-caret-rfe-sum-with-roc
   result <- NULL
   outcomedf <- cbind.data.frame(Selected=outcomeCol, SelectedC=ifelse(outcomeCol==1, "yes", "no"))
   
-#  rfeCtrl <- rfeControl(functions=caretFuncs, 
-#                    method = "cv",
-#                    repeats=1, number = 5,
-#                    returnResamp="final", verbose = TRUE)
-
   predictorCols <- convertToNumeric(df)
   # run the RFE algorithm
   result$rfe <- rfe(predictorCols, outcomedf[, "SelectedC"], 
     sizes=c(initialK),
     rfeControl=getRFEControl(caretFuncs),
-#rfeControl=rfeControl(functions=caretFuncs, 
-#                    method = "cv",
-#                    repeats=1, number = 5,
-#                    returnResamp="final", verbose = TRUE),
     method="svmRadial",
     metric = "Accuracy",
     trControl = getTrainControlForRF())
@@ -442,18 +413,14 @@ getPrunedTraindfBlanket <- function(df, initialK, outcomeCol) {
   result <- NULL
   predictorCols <- df[, sapply(df, nlevels) > 1]
   predictorCols <- convertToFactors(cbind.data.frame(predictorCols, Selected=outcomeCol))
-#  result$mb <- learn.mb(predictorCols, "Selected", "hc")
   
   result$model <- hc(predictorCols, score="aic")
-#  result$model <- iamb(predictorCols)
   result$mb <- mb(result$model, "Selected")
-  # arc.strength(result$model, predictorCols)
   prunedPredictorNames <- result$mb[1:min(length(result$mb), initialK)]
   writeLogMessage("Predictor names after applying Markov blanket:")
   writeLogMessage(paste(prunedPredictorNames, collapse=","))
   result$alldf <- predictorCols[, prunedPredictorNames]
   return(result)
-#  strength.plot(b, arc.strength(b, predictorCols))
 }
 
 getPrunedTraindfBlanketPCA <- function(df, initialK, outcomeCol) {
@@ -476,21 +443,6 @@ getPrunedTraindfBlanketICA <- function(df, initialK, outcomeCol) {
   return(result)
 }
 
-#  result <- NULL
-#  df <- cbind.data.frame(df, Selected=outcomeCol)
-#  result$mb <- learn.mb(df, "Selected", "iamb")
-#  writeLogMessage("Predictors in Markov blanket:")
-#  writeLogMessage(result$mb)
-#  if (initialK < length(result$mb)) {
-#    result1 <- result;
-#    result <- getPrunedTraindfICA(df[, result1$mb], initialK, outcomeCol)
-#    result$blanket <- result1
-#    return(result)
-#  }
-#  result$alldf <- df[, result$mb]
-#  return(result)
-#}
-
 getPrunedTraindfBlanketImpPCA <- function(df, initialK, outcomeCol) {
   result <- getPrunedTraindfBlanket(df, 1000000, outcomeCol);
   if (initialK < length(result$mb)) {
@@ -503,12 +455,7 @@ getPrunedTraindfBlanketImpPCA <- function(df, initialK, outcomeCol) {
   return(result)
 }
 
-#http://stats.stackexchange.com/questions/58531/using-lasso-from-lars-or-glmnet-package-in-r-for-variable-selection
-#df <- traindf[,6:ncol(traindf)]
-#outcomeCol <- traindf[, 1]
 getPrunedTraindfLASSO <- function(df, initialK, outcomeCol) {
-#http://stats.stackexchange.com/questions/34859/how-to-present-results-of-a-lasso-using-glmnet
-#My understanding is that you can't necessarily say much about which variables are "important" or have "real" effects based on whether their coefficients are nonzero. 
   getPredictorNames <- function() {
     predictorCols <- df
     for (col in names(predictorCols)) set(predictorCols, j=col, value=ifelse(predictorCols[[col]]==1, 1, 0))
@@ -517,7 +464,6 @@ getPrunedTraindfLASSO <- function(df, initialK, outcomeCol) {
     '%ni%'<-Negate('%in%')
     result$glmnet <<- cv.glmnet(x=as.matrix(predictorCols),y=oc,type.measure='mse',nfolds=5,alpha=.5)
     c <- coef(result$glmnet,s='lambda.min')
-#!!!Uus:    c <- coef(result$glmnet,s='lambda.1se',exact=TRUE)
     inds <- which(c!=0)
     v <- row.names(c)[inds]
     v <- head(v[v != '(Intercept)'], initialK)
@@ -582,8 +528,6 @@ getUniqueOrderedPredictors <- function(predictorNamesFunc, messageSuffix = "") {
 }
 
 getPrunedTraindfLASSORepeatedEx <- function(df, initialK, outcomeCol, coefAlgorithm) {
-#http://stats.stackexchange.com/questions/34859/how-to-present-results-of-a-lasso-using-glmnet
-#My understanding is that you can't necessarily say much about which variables are "important" or have "real" effects based on whether their coefficients are nonzero. 
   getPredictorNames <- function(index) {
     if (index > 10) {
       return(NULL)
@@ -655,6 +599,19 @@ getPrunedTraindfClusterImportance <- function(df, initialK, outcomeCol) {
   return(result)
 }
 
+getPrunedTraindfClusterImportanceGBM <- function(df, initialK, outcomeCol) {
+  n <- (ncol(df) - initialK)
+  result <- getPrunedTraindfCluster(df, max(initialK * 4, ncol(df) - (3 * n / 4)))
+  if (initialK < ncol(result$alldf)) {
+    result1 <- result
+    importanceSampleSize <- min(nrow(df), 1000)
+    result <- getPrunedTraindfImportanceGBM(result$alldf[1:importanceSampleSize,], initialK, outcomeCol[1:importanceSampleSize])
+    result$alldf <- result1$alldf[,names(result$alldf)]
+    result$cluster <- result1
+  }
+  return(result)
+}
+
 getPrunedTraindfRandom <- function(df, initialK, outcomeCol) {
   result <- NULL
   result$alldf <- df[, sample(names(df), initialK)]
@@ -705,18 +662,6 @@ removeColumnsHavingOneLevel <- function (df) {
   }
   return(df)
 }
-
-# system.time(r10rec <- performTest(traindf, getPrunedTraindfRecursive, 0, 10, "X29", "X_|29"))
-# df <- traindf
-# selectionFunc <- getPrunedTraindfRecursive
-# initialK <- 10
-# outcomeFeature <- "X29"
-# filteredFeatures <- "X_|29"
-# df <- dummytraindf
-# outcomeFeature <- "Selected"
-# filteredFeatures <- ""
-# initialK <- 2
-# selectionFunc <- getPrunedTraindfCluster
 
 initializePrunedFeatures <- function(traindf, selectionFunc, initialK, outcomeFeature, filteredFeatures, dummyFunc) {
   result <- NULL
@@ -787,8 +732,6 @@ preprocessTestData <- function(trainingResult, testdf) {
   if (!is.null(trainingResult$featureSelection$dummyFunc)) {
     writeLogMessage("Dummifying.")
     testPredictorCols <- trainingResult$featureSelection$dummyFunc(testPredictorCols)
-    # Ensure same columns can be found in both train and test data frames
-#    testPredictorCols <- testPredictorCols[,names(testPredictorCols) %in% names(predictorCols)]
   }
   missingCols <- setdiff(names(predictorCols), names(testPredictorCols))
   for (col in missingCols) {
@@ -863,7 +806,6 @@ testClassificationModel <- function(trainingResult, testdfIn) {
   result$mutualInformationWithOutcome <- calculateMutualInformationWithFeature(predictorsdf, alldf$Selected, predictorNames)
   writeLogMessage(paste("Mutual information factors: all: ", result$mutualInformation, " outcome: ", result$mutualInformationWithOutcome, sep=""))
 
-#  result$varImp <- varImp(trainingResult$model)
   return(result)
 }
 
@@ -1088,11 +1030,8 @@ performTestSuite <- function(testName, paramdf, sampleSizes, numVars, selectionF
                 res$durations <- dur
               }
               result$runs[[1]] <- res
-  #            result$runs[[id]] <- res
-  #            rr$runs[[length(rr$runs) + 1]] <<- res
               writeLogMessage(paste("Test finished for function ", sFuncName, ": elapsed=", dur[3], "", sep=""))
               dbg <<- result
-  #            write.csv(report(result, TRUE), logFile, append=TRUE)
               reportdf <- rbind.data.frame(reportdf, report(result, TRUE))
 
               write.csv(reportdf, logFile)
@@ -1173,29 +1112,49 @@ dummyAndCreateMultiLevelFeatures <- function(df) {
 }
 
 resetResultRegistry()
+
+
+########################################################################################
+# Initialize test data
 loadDataset("rabobank-all-structural-features", "rabobank-case-attributes", "Selected", "SelectedC", ";")
+#loadDataset("hospital-all-features", "", "Selected", "SelectedC", ",")
+
+
+
+
+
+########################################################################################
+# Example for running actual tests
 
 r <- performTestSuite(
-  "all",
+  "all-small-dataset",
   traindf, 
-  c(4000, 20000),
-  c(5, 10, 30),
+  c(4000),
+  c(10, 30),
   c(
     "getPrunedTraindfRandom",
     "getPrunedTraindfNone",
+    "getPrunedTraindfClusterDuplicates",
     "getPrunedTraindfCluster",
-    "getPrunedTraindfMRMREnsemble5",
-    "getPrunedTraindfClusterImportance",
     "getPrunedTraindfBlanket",
+    "getPrunedTraindfLASSO",
+    "getPrunedTraindfPCA", 
+    "getPrunedTraindfICA", 
+    "getPrunedTraindfRecursive", 
+    "getPrunedTraindfClusterImportance",
+    "getPrunedTraindfClusterImportanceGBM",
     "getPrunedTraindfLASSORepeated1se",
-    "getPrunedTraindfRecursive2Sizes"
+    "getPrunedTraindfRecursive2Sizes",
+    "getPrunedTraindfLASSORepeated",
+    "getPrunedTraindfRecursiveSVM"
   ),
   "Selected",
   "",
 #  c("", "dummyOnly", "dummyAddSeparateFeatureForMoreThanOneLevel"),
   c(""),
+#  c("task", "task,startend", "task,startend,2gram", "task,startend,order", "task,startend,2gram,order", "task,2gram", "task,2gram,order", "task,order"),
   c("task", "task,startend", "task,startend,2gram", "task,startend,order", "task,startend,2gram,order", "task,2gram", "task,2gram,order", "task,order", "2gram", "order", "2gram,order"),
-  1
+#  c("2gram", "order", "2gram,order"),
+  3
 #,  c("Category", "request for information")
 )
-
