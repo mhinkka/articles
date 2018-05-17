@@ -7,8 +7,8 @@
 # Configuration
 
 fileLocation <- "D:\\dev\\aalto\\papers\\structural-influence-analysis\\"
-logFileLocation <- "C:\\Users\\User\\Dropbox\\Aalto\\Structural Influence Analysis\\testruns\\"
-
+logFileLocation <- "C:\\Users\\User\\Dropbox\\Aalto\\testing\\testruns\\"
+#logFileLocation <- "C:\\Users\\marhink\\Dropbox\\Aalto\\testing\\testruns\\"
 # Initialize random seed so that the results are repeatable.
 seed <- 1234
 
@@ -29,6 +29,9 @@ require(glmnet)
 require(randomForest)
 require(infotheo)
 require(mRMRe)
+require(e1071)
+require(flexclust)
+
 
 ########################################################################################
 # Function definitions
@@ -134,6 +137,7 @@ getPrunedTraindfClusterEx <- function(df, initialK, outcomeCol, removeDuplicates
   }
     
   getUniqueFeatures <- function(df, threshold) {
+    res <- NULL
     findFeatureClustering <- function(df, threshold) {
       featuredf <- t(data.frame(lapply(df, function(x) as.numeric(as.character(x)))))
       k <- initialK
@@ -142,8 +146,8 @@ getPrunedTraindfClusterEx <- function(df, initialK, outcomeCol, removeDuplicates
         clusterPercentage <- (kresult$betweenss / kresult$totss) * 100
         writeLogMessage(paste("Cluster size #", k, " percentage:", clusterPercentage))
         if (clusterPercentage >= threshold) {
-          result$clusterPercentage <<- clusterPercentage
-          result$clusterCount <<- k
+          res$clusterPercentage <<- clusterPercentage
+          res$clusterCount <<- k
           return(kresult)
         }
         k <- k + 1
@@ -176,17 +180,98 @@ getPrunedTraindfClusterEx <- function(df, initialK, outcomeCol, removeDuplicates
       id <- which(names(df) == rownames(d)[2])
       clusterCenterFeatureIndexes <- c(clusterCenterFeatureIndexes, id)
     }
-    result$clusters <<- clusters
+    res$clusters <- clusters
 
-    result$clusters$clusterCenterFeatureIndexes <<- clusterCenterFeatureIndexes
-    result$clusters$clusterCenterFeatures <<- names(df)[clusterCenterFeatureIndexes]
-    return(colnames(df[, clusterCenterFeatureIndexes]))
+    res$clusters$clusterCenterFeatureIndexes <- clusterCenterFeatureIndexes
+    res$clusters$clusterCenterFeatures <- names(df)[clusterCenterFeatureIndexes]
+    res$clusters$clusterCenterFeatureNames <- colnames(df[, clusterCenterFeatureIndexes])
+    return(res)
   }
 
   if (removeDuplicates) {
     df <- df[!duplicated(lapply(df, summary))]
     nc <- ncol(df)
     writeLogMessage(paste("Predictors with duplicates removed:", nc))
+  }
+
+  if (initialK >= ncol(df)) {
+    result$alldf <- df
+    writeLogMessage(paste("Target number of predictors reached before clustering: ", ncol(result$alldf), sep=""))
+    return(result)
+  }
+
+  result <- getUniqueFeatures(df, 0)
+  result$alldf <- df[, result$clusters$clusterCenterFeatureNames]
+
+  writeLogMessage(paste("Predictor names after cluster (", ncol(result$alldf), "):", sep=""))
+  writeLogMessage(names(result$alldf))
+  return(result)
+}
+
+getPrunedTraindfClusterWithOutliers <- function(df, initialK, outcomeCol) {
+  result <- NULL
+  if (initialK >= ncol(df)) {
+    result$alldf <- df
+    return(result)
+  }
+    
+  getUniqueFeatures <- function(df, threshold) {
+    featuredf <- t(data.frame(lapply(df, function(x) as.numeric(as.character(x)))))
+    findFeatureClustering <- function(df, threshold) {
+      k <- initialK
+      repeat {
+        kresult <- kmeans(featuredf, k)
+        clusterPercentage <- (kresult$betweenss / kresult$totss) * 100
+        writeLogMessage(paste("Cluster size #", k, " percentage:", clusterPercentage))
+        if (clusterPercentage >= threshold) {
+          result$clusterPercentage <<- clusterPercentage
+          result$clusterCount <<- k
+          return(kresult)
+        }
+        k <- k + 1
+      }
+    }
+    
+    clusters <- findFeatureClustering(df, threshold)
+    
+    # Initialize clustering maps
+    clusters$maps <- new.env()
+    for (i in 1:length(clusters$cluster)) {
+      c <- clusters$cluster[i]
+      varName <- paste("C", as.numeric(c), sep="")
+      
+      if (!exists(varName, envir=clusters$maps)) {
+        evalStr <- paste(varName, " <- data.frame(clusters$center[", as.numeric(c),",])", sep="")
+        eval(parse(text=evalStr), envir=clusters$maps)
+      }
+      evalStr <- paste(varName, " <- cbind.data.frame(", varName,", ", names(c), "=df$", names(c), ")", sep="")
+      eval(parse(text=evalStr), envir=clusters$maps)
+    }
+
+    # Calculate closest features to cluster centers
+    clusterCenterFeatureIndexes <- NULL    
+    for (i in 1:(as.integer(0.8 * initialK))) {
+      evalStr <- paste("C", i, sep="")
+      cmp <- eval(parse(text=evalStr), envir=clusters$maps)
+      d <- data.frame(as.matrix(dist(t(cmp))))
+      d <- d[order(d[,1]), ]
+      id <- which(names(df) == rownames(d)[2])
+      clusterCenterFeatureIndexes <- c(clusterCenterFeatureIndexes, id)
+    }
+    
+    centers <- clusters$centers[clusters$cluster, ] # "centers" is a data frame of 3 centers but the length of iris dataset so we can canlculate distance difference easily.
+    distances <- sqrt(rowSums((featuredf - centers)^2))
+
+    nOutliers <- initialK - length(clusterCenterFeatureIndexes)
+    writeLogMessage(paste("Selecting ", nOutliers, " outliers", sep=""))
+    outliers <- order(distances, decreasing=T)
+    clusterCenterFeatureIndexes <- unique(c(clusterCenterFeatureIndexes, outliers))[1:initialK]
+
+    result$clusters <<- clusters
+
+    result$clusters$clusterCenterFeatureIndexes <<- clusterCenterFeatureIndexes
+    result$clusters$clusterCenterFeatures <<- names(df)[clusterCenterFeatureIndexes]
+    return(colnames(df[, clusterCenterFeatureIndexes]))
   }
 
   if (initialK >= ncol(df)) {
@@ -599,6 +684,285 @@ getPrunedTraindfClusterImportance <- function(df, initialK, outcomeCol) {
   return(result)
 }
 
+getPrunedTraindfInfluence <- function(df, initialK, outcomeCol) {
+  result <- NULL
+  if (initialK < ncol(df)) {
+    n_totalSel <- table(outcomeCol)[2]
+    p_totalSel <- n_totalSel / nrow(df)
+    contributions <- rep(0, ncol(df))
+    i <- 1
+    for (col in names(df)) {
+      df_all <- data.frame(col = df[col], outcome = outcomeCol)
+      df_sel <- df_all[which(df_all$outcome != 0),]
+      n_feat <- length(which(df_all[col] != 0))
+      n_sel <- length(which(df_sel[col] != 0))
+      p_sel <- n_sel / n_feat
+      diff <- abs(p_sel - p_totalSel)
+      contributions[i] <- diff * n_feat
+      i <- i + 1
+    }
+    tmpdf <- data.frame(col = names(df), contribution = abs(contributions))
+    tmpdf <- tmpdf[order(-tmpdf$contribution),]
+    featureNames <- tmpdf[1:initialK,1]
+    writeLogMessage("Predictor names after influence:")
+    writeLogMessage(featureNames)
+    result$alldf <- df[,featureNames]
+    return(result)
+  }
+  else {
+    result$alldf <- df
+    return(result)
+  }
+}
+
+getPrunedTraindfClusterInfluence <- function(df, initialK, outcomeCol) {
+  result <- getPrunedTraindfCluster(df, initialK * 2, outcomeCol)
+  if (initialK < ncol(result$alldf)) {
+    result1 <- result
+    result <- getPrunedTraindfInfluence(result$alldf, initialK, outcomeCol)
+    result$cluster <- result1
+  }
+  return(result)
+}
+
+getPrunedTraindfFisher <- function(df, initialK, outcomeCol) {
+# http://ink.library.smu.edu.sg/cgi/viewcontent.cgi?article=1458&context=sis_research
+#   A feature will
+#   have a very large Fisher score if it has very similar values
+#   within the same class and very different values across different
+#   classes. In this case, this feature is very discriminative to
+#   differentiate instances from different classes
+  result <- NULL
+  if (initialK < ncol(df)) {
+    mu <- mean(as.numeric(outcomeCol) - 1)
+    scores <- rep(0, ncol(df))
+    i <- 1
+    for (col in names(df)) {
+      df_all <- data.frame(col = convertToNumeric(df[col]) - 1, outcome = outcomeCol)
+      df_sel <- df_all[which(df_all$outcome != 0),]
+      df_notSel <- df_all[which(df_all$outcome == 0),]
+#      df_feat <- df_all[which(df_all[col] != 0),]
+#      df_notFeat <- df_sel[which(df_sel[col] != 0),]
+      n_sel <- nrow(df_sel)
+      n_notSel <- nrow(df_all) - n_sel
+      col_sel <- df_sel[col]
+      col_notSel <- df_notSel[col]
+      mu_sel <- sapply(col_sel, mean, na.rm = TRUE)
+      sigma_sel <- sapply(col_sel, sd, na.rm = TRUE)
+      mu_notSel <- sapply(col_notSel, mean, na.rm = TRUE)
+      sigma_notSel <- sapply(col_notSel, sd, na.rm = TRUE)
+      a = n_sel * (mu_sel - mu) * (mu_sel - mu) + n_notSel * (mu_notSel - mu) * (mu_notSel - mu)
+      b = n_sel * sigma_sel + n_notSel * sigma_notSel
+      if (b == 0) {
+        score = 0
+      }
+      else {
+        score = a / b
+      }
+      scores[i] = score
+      i <- i + 1
+    }
+    tmpdf <- data.frame(col = names(df), score = scores)
+    tmpdf <- tmpdf[order(-tmpdf$score),]
+    featureNames <- tmpdf[1:initialK,1]
+    writeLogMessage("Predictor names after Fisher scoring:")
+    writeLogMessage(featureNames)
+    result$alldf <- df[,featureNames]
+    return(result)
+  }
+  else {
+    result$alldf <- df
+    return(result)
+  }
+}
+
+getPrunedTraindfClusterFisher <- function(df, initialK, outcomeCol) {
+  result <- getPrunedTraindfCluster(df, initialK * 2, outcomeCol)
+  if (initialK < ncol(result$alldf)) {
+    result1 <- result
+    result <- getPrunedTraindfInfluence(result$alldf, initialK, outcomeCol)
+    result$cluster <- result1
+  }
+  return(result)
+}
+
+getPrunedTraindfClusterAllInfluence <- function(df, initialK, outcomeCol) {
+  n <- (ncol(df) - initialK)
+#  result <- getPrunedTraindfClusterDuplicates(df, initialK * 1.5)
+  result <- getPrunedTraindfClusterDuplicates(df, initialK + 2)
+  if (initialK < ncol(result$alldf)) {
+    contributions <- rep(0, ncol(result$alldf))
+    names(contributions) <- colnames(result$alldf)
+    featureToClusterCenterFeatureMap <- rep(0, ncol(df))
+    names(featureToClusterCenterFeatureMap) <- colnames(df)
+    for (col in names(df)) {
+      clusterId <- result$clusters$cluster[col]
+      featureToClusterCenterFeatureMap[col] <- result$clusters$clusterCenterFeatures[clusterId]
+    }
+    
+    nTotalNotSel <- table(outcomeCol)[1]
+    nTotalSel <- table(outcomeCol)[2]
+    pTotalSel <- nTotalSel / nrow(df)
+    i <- 1
+    for (col in names(df)) {
+      coldf <- data.frame(col = df[col], outcome = outcomeCol)
+      seldf <- coldf[which(coldf$outcome != 0),]
+      featseldf <- which(seldf[col] != 0)
+      nSel <- length(featseldf)
+      if (length(featseldf) != 0) {
+        pSel <- nSel / length(which(coldf[col] != 0))
+        diff <- pSel - pTotalSel
+        contributions[featureToClusterCenterFeatureMap[col]] <- contributions[featureToClusterCenterFeatureMap[col]] + (diff * nTotalSel)
+      }
+      i <- i + 1
+    }
+    tmpdf <- data.frame(col = names(result$alldf), contribution = contributions)
+    tmpdf <- tmpdf[order(-tmpdf$contribution),]
+    featureNames <- tmpdf[1:initialK,1]
+    writeLogMessage("Predictor names after influence:")
+    writeLogMessage(featureNames)
+    result$cluster <- result
+    result$alldf <- result$alldf[,featureNames]
+  }
+  return(result)
+}
+
+genericKcca <- function(df, initialK, outcomeCol, family, control) {
+  result <- NULL
+  if (initialK >= ncol(df)) {
+    result$alldf <- df
+    return(result)
+  }
+  
+  getUniqueFeatures <- function(df, threshold) {
+    res <- NULL
+    findFeatureClustering <- function(df, threshold) {
+      featuredf <- t(data.frame(lapply(df, function(x) as.numeric(as.character(x)))))
+
+      if (is.null(control)) {
+        kresult <- kcca(featuredf, initialK, family=family)
+      }
+      else {
+        kresult <- kcca(featuredf, initialK, family=family, control=control)
+      }
+      res$clusterCount <<- initialK
+      return(kresult)
+    }
+    
+    res$clusters <- findFeatureClustering(df, threshold)
+    clusters <- res$clusters
+    
+    # Initialize clustering maps
+    res$maps <- new.env()
+    for (i in 1:length(clusters@cluster)) {
+      c <- clusters@cluster[i]
+      varName <- paste("C", as.numeric(c), sep="")
+      
+      if (!exists(varName, envir=res$maps)) {
+        evalStr <- paste(varName, " <- data.frame(clusters@centers[", as.numeric(c),",])", sep="")
+        eval(parse(text=evalStr), envir=res$maps)
+      }
+      evalStr <- paste(varName, " <- cbind.data.frame(", varName,", ", names(c), "=df$", names(c), ")", sep="")
+      eval(parse(text=evalStr), envir=res$maps)
+    }
+    
+    # Calculate closest features to cluster centers
+    clusterCenterFeatureIndexes <- NULL    
+    for (i in 1:initialK) {
+      evalStr <- paste("C", i, sep="")
+      cmp <- eval(parse(text=evalStr), envir=res$maps)
+      d <- data.frame(as.matrix(dist(t(cmp))))
+      d <- d[order(d[,1]), ]
+      id <- which(names(df) == rownames(d)[2])
+      clusterCenterFeatureIndexes <- c(clusterCenterFeatureIndexes, id)
+    }
+    res$clusters <- clusters
+    
+    res$clusterCenterFeatureIndexes <- clusterCenterFeatureIndexes
+    res$clusterCenterFeatures <- names(df)[clusterCenterFeatureIndexes]
+    res$clusterCenterFeatureNames <- colnames(df[, clusterCenterFeatureIndexes])
+    return(res)
+  }
+  
+  if (initialK >= ncol(df)) {
+    result$alldf <- df
+    writeLogMessage(paste("Target number of predictors reached before clustering: ", ncol(result$alldf), sep=""))
+    return(result)
+  }
+  
+  result <- getUniqueFeatures(df, 0)
+  result$alldf <- df[, result$clusterCenterFeatureNames]
+  
+  writeLogMessage(paste("Predictor names after cluster (", ncol(result$alldf), "):", sep=""))
+  writeLogMessage(names(result$alldf))
+  return(result)
+}
+
+getPrunedTraindfClusterKccaKMeans <- function (df, initialK, outcomeCol) {
+  return(genericKcca(df, initialK, outcomeCol, kccaFamily("kmeans"), list(initcent="kmeanspp")))
+}
+
+getPrunedTraindfClusterKccaKMedians <- function (df, initialK, outcomeCol) {
+  return(genericKcca(df, initialK, outcomeCol, kccaFamily("kmedians"), list(initcent="kmeanspp")))
+}
+
+getPrunedTraindfClusterKccaJaccard <- function (df, initialK, outcomeCol) {
+  return(genericKcca(df, initialK, outcomeCol, kccaFamily("jaccard"), list(initcent="kmeanspp")))
+}
+
+getPrunedTraindfClusterKccaKMeansWeightedDistance <- function (df, initialK, outcomeCol) {
+  contributions <- rep(0, ncol(df))
+  names(contributions) <- colnames(df)
+  
+  nTotalNotSel <- table(outcomeCol)[1]
+  nTotalSel <- table(outcomeCol)[2]
+  pTotalSel <- nTotalSel / nrow(df)
+  i <- 1
+  for (col in names(df)) {
+    coldf <- data.frame(col = df[col], outcome = outcomeCol)
+    seldf <- coldf[which(coldf$outcome != 0),]
+    featseldf <- which(seldf[col] != 0)
+    nSel <- length(featseldf)
+    if (length(featseldf) != 0) {
+      pSel <- nSel / length(which(coldf[col] != 0))
+      diff <- pSel - pTotalSel
+      contributions[col] <- contributions[col] + (diff * nTotalSel)
+    }
+    i <- i + 1
+  }
+
+  for (col in names(df)) {
+    coldf <- data.frame(col = df[col], outcome = outcomeCol)
+    seldf <- coldf[which(coldf$outcome != 0),]
+    featseldf <- which(seldf[col] != 0)
+    nSel <- length(featseldf)
+    if (length(featseldf) != 0) {
+      pSel <- nSel / length(which(coldf[col] != 0))
+      diff <- pSel - pTotalSel
+      contributions[col] <- contributions[col] + (diff * nTotalSel)
+    }
+    i <- i + 1
+  }
+  
+  w <- rep(0, ncol(df))
+  maxContribution <- max(contributions, na.rm=TRUE)
+  for (i in 1:length(contributions)) {
+    w[i] <- abs(contributions[i] / maxContribution)
+  }
+  
+  family <- kccaFamily(dist=function (x, centers) 
+  {
+    if (ncol(x) != ncol(centers)) 
+      stop(sQuote("x"), " and ", sQuote("centers"), " must have the same number of columns")
+    z <- matrix(0, nrow = nrow(x), ncol = nrow(centers))
+    for (k in 1:nrow(centers)) {
+      z[, k] <- sqrt(colSums((w*(t(x) - centers[k, ]))^2))
+    }
+    z
+  })
+  return(genericKcca(df, initialK, outcomeCol, family, list(initcent="kmeanspp")))
+}
+
 getPrunedTraindfClusterImportanceGBM <- function(df, initialK, outcomeCol) {
   n <- (ncol(df) - initialK)
   result <- getPrunedTraindfCluster(df, max(initialK * 4, ncol(df) - (3 * n / 4)))
@@ -635,7 +999,8 @@ getPrunedTraindfMRMR <- function(df, initialK, outcomeCol, solutionCount) {
   }
   predictorNames <- getUniqueOrderedPredictors(getPredictorNames)
   predictorNames <- predictorNames[1:min(length(predictorNames), initialK)]
-
+  predictorNames <- predictorNames[!is.na(predictorNames)]
+  
   result$alldf <- df[, predictorNames]
   writeLogMessage(paste("Predictor names after minimum-redundancy maximum-relevancy (", ncol(result$alldf), "):", sep=""))
   writeLogMessage(names(result$alldf))
@@ -648,6 +1013,16 @@ getPrunedTraindfMRMRClassic <- function(df, initialK, outcomeCol) {
 
 getPrunedTraindfMRMREnsemble5 <- function(df, initialK, outcomeCol) {
   return(getPrunedTraindfMRMR(df, initialK, outcomeCol, 5))
+}
+
+getPrunedTraindfClusterMRMR <- function(df, initialK, outcomeCol) {
+  result <- getPrunedTraindfCluster(df, initialK * 2, outcomeCol)
+  if (initialK < ncol(result$alldf)) {
+    result1 <- result
+    result <- getPrunedTraindfMRMREnsemble5(result$alldf, initialK, outcomeCol)
+    result$cluster <- result1
+  }
+  return(result)
 }
 
 removeColumnsHavingOneLevel <- function (df) {
@@ -690,10 +1065,17 @@ initializePrunedFeatures <- function(traindf, selectionFunc, initialK, outcomeFe
   d1 <<- predictorCols
   d2 <<- initialK
   d3 <<- prunedTraindf$Selected
-  pruneResult <- selectionFunc(predictorCols, initialK, prunedTraindf$Selected)
+  if (initialK < ncol(predictorCols)) {
+    pruneResult <- selectionFunc(predictorCols, initialK, prunedTraindf$Selected)
+  }
+  else {
+    writeLogMessage(paste("Feature selection was not required due to the desired number of selected features being greater than the number of actual features."))
+    pruneResult <- NULL
+    pruneResult$alldf <- predictorCols
+  }
 
   result$featureNames <- sort(colnames(pruneResult$alldf))
-  result$pruneResult <- pruneResult
+  result$pruneResult <- predictorCols
 
   writeLogMessage(paste("Pruned number of predictors:", ncol(pruneResult$alldf)))
   result$traindf <- cbind(fixedCols, pruneResult$alldf)
@@ -804,6 +1186,8 @@ testClassificationModel <- function(trainingResult, testdfIn) {
   predictorsdf <- alldf[,6:ncol(alldf)]
   result$mutualInformation <- calculateMutualInformation(predictorsdf, predictorNames)
   result$mutualInformationWithOutcome <- calculateMutualInformationWithFeature(predictorsdf, alldf$Selected, predictorNames)
+#  result$mutualInformation <- NULL
+#  result$mutualInformationWithOutcome <- NULL
   writeLogMessage(paste("Mutual information factors: all: ", result$mutualInformation, " outcome: ", result$mutualInformationWithOutcome, sep=""))
 
   return(result)
@@ -1046,6 +1430,15 @@ performTestSuite <- function(testName, paramdf, sampleSizes, numVars, selectionF
   return(result);
 }
 
+performTestSuiteIncludingDefaultPhenomenon <- function(testName, paramdf, sampleSizes, numVars, selectionFuncNames, outcomeFeature, filteredFeatures, dummyFuncs, featureSetsToTest, numRepeats = 1, phenomenon = NULL, seedOffset = 0) {
+  if (!is.null(phenomenon)) {
+    performTestSuite(testName, paramdf, sampleSizes, numVars, selectionFuncNames, outcomeFeature,
+      filteredFeatures, dummyFuncs, featureSetsToTest, numRepeats, NULL, seedOffset)
+  }
+  performTestSuite(testName, paramdf, sampleSizes, numVars, selectionFuncNames, outcomeFeature,
+    filteredFeatures, dummyFuncs, featureSetsToTest, numRepeats, phenomenon, seedOffset)
+}
+
 dummify <- function (df, createFeaturesForMoreThanNLevels = 0) {
   writeLogMessage(paste("Number of features before dummification: ", ncol(df), sep=""))
   predictorCols <- df
@@ -1116,45 +1509,54 @@ resetResultRegistry()
 
 ########################################################################################
 # Initialize test data
-loadDataset("rabobank-all-structural-features", "rabobank-case-attributes", "Selected", "SelectedC", ";")
+#loadDataset("rabobank-all-structural-features", "rabobank-case-attributes", "Selected", "SelectedC", ";")
 #loadDataset("hospital-all-features", "", "Selected", "SelectedC", ",")
-
-
+#loadDataset("BPIC13_incidents-all-features", "", "Selected", "SelectedC", ";")
+#loadDataset("BPIC17_morethan5weeks-all-features", "", "Selected", "SelectedC", ";")
+#loadDataset("BPIC12_morethan2weeks-all-features", "", "Selected", "SelectedC", ";")
 
 
 
 ########################################################################################
 # Example for running actual tests
 
-r <- performTestSuite(
-  "all-small-dataset",
+loadDataset("rabobank-all-structural-features", "rabobank-case-attributes", "Selected", "SelectedC", ";")
+r <- performTestSuiteIncludingDefaultPhenomenon(
+  "bpic14",
   traindf, 
-  c(4000),
-  c(10, 30),
+  c(40000),
+  c(10,30),
   c(
-    "getPrunedTraindfRandom",
-    "getPrunedTraindfNone",
-    "getPrunedTraindfClusterDuplicates",
     "getPrunedTraindfCluster",
-    "getPrunedTraindfBlanket",
-    "getPrunedTraindfLASSO",
-    "getPrunedTraindfPCA", 
-    "getPrunedTraindfICA", 
-    "getPrunedTraindfRecursive", 
-    "getPrunedTraindfClusterImportance",
-    "getPrunedTraindfClusterImportanceGBM",
-    "getPrunedTraindfLASSORepeated1se",
-    "getPrunedTraindfRecursive2Sizes",
-    "getPrunedTraindfLASSORepeated",
-    "getPrunedTraindfRecursiveSVM"
+    "getPrunedTraindfClusterMRMR",
+    "getPrunedTraindfClusterFisher",
+    "getPrunedTraindfFisher",
+    "getPrunedTraindfMRMREnsemble5"
   ),
   "Selected",
   "",
-#  c("", "dummyOnly", "dummyAddSeparateFeatureForMoreThanOneLevel"),
   c(""),
-#  c("task", "task,startend", "task,startend,2gram", "task,startend,order", "task,startend,2gram,order", "task,2gram", "task,2gram,order", "task,order"),
   c("task", "task,startend", "task,startend,2gram", "task,startend,order", "task,startend,2gram,order", "task,2gram", "task,2gram,order", "task,order", "2gram", "order", "2gram,order"),
-#  c("2gram", "order", "2gram,order"),
-  3
-#,  c("Category", "request for information")
+  1
+,  c("Category", "request for information")
+)
+
+loadDataset("BPIC12_morethan2weeks-all-features", "", "Selected", "SelectedC", ";")
+r <- performTestSuite(
+  "bpic12",
+  traindf, 
+  c(13087),
+  c(10,30),
+  c(
+    "getPrunedTraindfCluster",
+    "getPrunedTraindfClusterMRMR",
+    "getPrunedTraindfClusterFisher",
+    "getPrunedTraindfFisher",
+    "getPrunedTraindfMRMREnsemble5"
+  ),
+  "Selected",
+  "",
+  c(""),
+  c("task", "task,startend", "task,startend,2gram", "task,startend,order", "task,startend,2gram,order", "task,2gram", "task,2gram,order", "task,order", "2gram", "order", "2gram,order"),
+  1
 )
